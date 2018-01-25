@@ -1,0 +1,19 @@
+{
+  "name": "Computer-V1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:abarriel/Computer-V1.git",
+  "author": "abarriel <abarriel@student.42.fr>",
+  "license": "MIT",
+  "scripts": {
+    "start": "babel-node index.js"
+  },
+  "dependencies": {
+    "@babel/core": "^7.0.0-beta.38",
+    "@babel/node": "^7.0.0-beta.38",
+    "@babel/preset-env": "^7.0.0-beta.38",
+    "colors": "^1.1.2",
+    "get-stdin": "^5.0.1",
+    "lodash": "^4.17.4"
+  }
+}
