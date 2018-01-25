@@ -1,13 +1,10 @@
 import colors from 'colors';
 import _ from 'lodash';
 
+import { header, printAndCheckPolynome, printDiscriminant, printNoError, printReduce } from './print';
+import { mergeWithArray, gcd, cleanSpace, isPolynomeNull } from './tools';
+
 process.stdin.setEncoding('utf8');
-
-const mergeWithArray = (objValue, srcValue) => {
-  if (_.isArray(objValue)) return objValue.concat(srcValue);
-};
-
-const cleanSpace = (s) => s.replace(/\s/g, '').trim().replace(/\+/g, ' +').replace(/\-/g, ' -');
 
 const groupByX = (s, revert) => _.reduce(s, (acc,v,i) => {
     let n;
@@ -26,112 +23,77 @@ const groupByX = (s, revert) => _.reduce(s, (acc,v,i) => {
     return { ...acc, [n]: _.concat(acc[n], v)};
   }, {});
 
-const printReduce = (s) => {
-  const mapObj = { '.0':'', '+':'+ ','-':'- ','x^0':'','x^1': 'x'};
-  const str = (_.reduce(s, (acc, v) => { 
-    let [val, key] = [Object.values(v)[0], Object.keys(v)[0]];
-    if (key > 0 && val[0] !== '-') val = `+${val}`;
-    return `${acc} ${val}x^${key}`;
-  }, '') + ' = 0')
-    .trim()
-    .replace(/\s\s+/,' ')
-    .replace(/\.0|\+|\-|x\^0|x\^1/g, (m) => mapObj[m]) ;
-  console.log('Reduce:'.padEnd(10).green, str);
+const getFractionIfFloat = (float) => {
+  const len = (float + "").slice((float + "").indexOf('.') + 1).length;
+  const denominator = Math.pow(10, len);
+  const pgcd = gcd(float * denominator, denominator);
+  if ((denominator / pgcd) === 1) return `${float}`;
+  return `${float.toFixed(6 < len ? 6 : len)} or ${((float * denominator / pgcd) + "").slice(0, 6)}/${((denominator / pgcd) + "").slice(0,6)}`;
 };
 
-const printAndCheckPolynome = (s) => {
-  const poly = Object.keys(s).length - 1 || 1;
-  console.log('Degree: '.padEnd(10).blue, poly);
-  if (poly > 2) {
-    console.log('The polynomial degree is stricly greater than 2, I can\'t solve.'.bold.red)
-  }
-};
+header();
 
-console.log('\n********** Welcome to Computer V1 software **********'.rainbow); // outputs green text
-console.log('\n***** Please Right down your expression *****\n'.green); // outputs green text
-
-process.stdout.write("> ".red);
+// process.stdout.write("> ".red);
 
 process.stdin.on('readable', () => {
+  process.stdout.write("> ".red);  
   const chunk = process.stdin.read();
   if (!chunk) return ;
-  console.log('\n');
-  console.log('Original:'.padEnd(10).red, chunk.trim());
   let [leftExp, tmp] = cleanSpace(chunk).split('=');
+  if(!tmp) return ;
+  console.log('\n');
+  console.log('Original:'.padEnd(10).bold.red, chunk.trim());
   tmp = groupByX(tmp.split(' '), true); // revert the sign because it from the right side
   leftExp = groupByX(leftExp.split(' '), false);
   _.mergeWith(tmp, leftExp, mergeWithArray);
 
-  // console.log('tmp', tmp);
-  const groupBy = _.compact(_.map(tmp, (v, i) => {
-      const acc = _.reduce(v, (acc, va) => {
+  const groupBy = _.reduce(tmp, (acc, v, i) => {
+      const res = _.reduce(v, (res, va) => {
         let n = va;
-        // console.log('va', va);
         if (va.includes('*')) n = va.split('*')[0];
         else if (va.includes('X')) n = va.split('X')[0];
-        if(n.length <= 1) n = `${n}1`;
-        // console.log('n', n);
-        return (acc + parseFloat(n));
+        if (n.length <= 1) n = `${n}1`;
+        return (res + parseFloat(n));
       }, 0).toPrecision(2);
-      if (acc === 'NaN' || parseFloat(acc) === 0) return null;
-      return ({ [i]: acc });
-  }));
-  // console.log(groupBy);
+      if (res === 'NaN' || parseFloat(res) === 0) return acc;
+      return ({ ...acc, [i]: res });
+  }, {});
+  if (_.isEmpty(groupBy) && chunk.includes('X')) {
+    console.log('All reals are solution');
+    process.stdout.write("> ".red);  
+    return
+  }
+  if (_.isEmpty(groupBy) || isPolynomeNull(groupBy)) {
+    console.log('😂 😂 😂');
+    process.stdout.write("> ".red);  
+    return
+  }
   printReduce(groupBy);
-  printAndCheckPolynome(groupBy);
-  // console.log(leftExp, rightExp);
-  // // console.log('Process Reducing:'.green, `${leftExp}-${rightExp} = 0`.replace(/\+/g, ' + ').replace(/\-/g, ' - '));
-  // const reduceExpTmp = `${leftExp}-${rightExp}`.replace(/\+/g, '+P').replace(/\-/g, '-M');
-  // console.log(reduceExpTmp); 
-  
-  // tmp = reduceExpTmp.split(/\-|\+/).map(v => v.replace(/P/g, '+').replace(/M/g, '-'));
-  // const groupBy = _.groupBy(tmp, (v) => {
-  //     if (v.includes('X^0')) return 0;
-  //     if (v.includes('X^1')) return 1;
-  //     if (v.includes('X^2')) return 2;
-  // });
-  // console.log(groupBy);
-  // console.log(g);
-  // const reduceExp = _.reduce(groupBy,(acc, v, k) => {
-  //     if(v)
-  //     console.log(v);
-  // },
-  // '');
-  // console.log(reduceExp);
-  // console.log(groupBy)
-  // console.log('Input'.yellow, exp.blue);
-  // process.stdout.write("> ".red); 
+  const polynome = printAndCheckPolynome(groupBy);
+  const { 0:c = 0, 1:b = 0, 2:a = 0 } = _.map(groupBy, parseFloat);
+
+  if (polynome == 1) {
+    console.log(`\nThe solution is: ${getFractionIfFloat((c * -1)/ b).bold.green}`);    
+    process.stdout.write("> ".red);  
+    return ;
+  }
+  const dis = b*b - 4*a*c;
+  printDiscriminant(a,b,c,dis);
+  if (dis < 0) {
+    console.log('Discriminant is strictly negative, no real solution.'.bold.red);
+    console.log(`The two complexes solution are: z1 = -${b}-i√${dis * -1}/(2*${a}) and z2 = -${b}+i√${dis * -1}/(2*${a})`)
+  }
+  if (dis == 0) {
+    const x0 = -b / (2*a);
+    console.log('Discriminant is strictly equal to zero.');    
+    console.log(`\nThe solution is: ${getFractionIfFloat(x0).bold.green}`);
+  }
+  if (dis > 0) {
+    const x1 = (-b - Math.sqrt(dis)) / (2*a);
+    const x2 = (-b + Math.sqrt(dis)) / (2*a);
+    console.log('Discriminant is strictly positive, the two solutions are:');
+    console.log(`x1 = ${getFractionIfFloat(x1).bold.green} and x2 = ${getFractionIfFloat(x2).bold.blue}`);
+  }
+  // console.log('Press Enter For a new shot\n');
+  return;
 });
-
-// 5 * X^0 = 5 * X^0                                    tout les reel sont solution
-// 4 * X^0 = 8                                          impossbile
-// 5 * X^0 = 4 * X^0 + 7 * X^1                          1 Solution
-// 5 * X^0 + 13 * X^1 + 3 * X^2 = 1 * X^0 + 1 * X^1     2 solution
-// 6 * X^0 + 11 * X^1 + 5 * X^2 = 1 * X^0 + 1 * X^1     discriminant null 1 sol
-// 5 * X^0 + 3 * X^1 + 3 * X^2 = 1 * X^0 + 0 * X^1      discriminant negatif  2 sol
-
-
-// Bonus 
-// 5 + 4 * X + X^2= X^2
-// Reduced form: 5 + 4 * X = 0
-// Polynomial degree: 1
-// The solution is:
-// -1.25
-
-// 5 * X^0 + 4 * X^1 - 9.3 * X^2 = 1 * X^0
-// Reduced form: 4 * X^0 + 4 * X^1 - 9.3 * X^2 = 0
-// Polynomial degree: 2
-// Discriminant is strictly positive, the two solutions are:
-// 0.905239
-// -0.475131
-
-// 5 * X^0 + 4 * X^1 = 4 * X^0
-// Reduced form: 1 * X^0 + 4 * X^1 = 0
-// Polynomial degree: 1
-// The solution is:
-// -0.25
-
-// 8 * X^0 - 6 * X^1 + 0 * X^2 - 5.6 * X^3 = 3 * X^0
-// Reduced form: 5 * X^0 - 6 * X^1 + 0 * X^2 - 5.6 * X^3 = 0
-// Polynomial degree: 3
-// The polynomial degree is stricly greater than 2, I can't solve.
